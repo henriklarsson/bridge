@@ -13,10 +13,6 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 open_boolean = False
 init_db()
-
-u = User('admins', 'adminds')
-db_session.add(u)
-db_session.commit()
 q = db_session.query(User)
 print q
 print q.column_descriptions
@@ -31,60 +27,90 @@ def timer():
     while True:
         print " sleep"
         global open_boolean
-        open_boolean = not open_boolean
-        createRequest()
-        time.sleep(50)
+        check_bridge_status()
+        time.sleep(60)
 
-def createRequest():
+def check_bridge_status():
+    url = "http://data.goteborg.se/BridgeService/v1.0/GetGABOpenedStatus/f459f514-8dfe-4279-b546-d7a0fb76870c?format=json"
+    response = requests.get(url)
+    global open_boolean
+    json_data = json.loads(response.text)
+    if "True" in json_data or "true" in json_data:
+        bridge_open()
+
+
+    print json_data
+
+def bridge_open():
+    query = db_session.query(User)
+    for item in query:
+        send_push(item.pushId, 'open')
+
+
+ #e5P-SZOXmNY:APA91bEIDqjSB0tmSMS4Pzg1vR7AwlLBQCb_VaeRF_3cgJo63ofgtQXvN-B9MhB6OgtsJyK4_ljSr3OCvME4TFvjDsLEGTYSktsuQ02mWOPlEoDeZOunwgQnN7XH8RB7N9QdXqV8QzzM
+
+def send_push(pushId, status):
     url = 'https://fcm.googleapis.com/fcm/send'
-    payload = {'data': {'status': 'test'}, 'to' : 'e5P-SZOXmNY:APA91bEIDqjSB0tmSMS4Pzg1vR7AwlLBQCb_VaeRF_3cgJo63ofgtQXvN-B9MhB6OgtsJyK4_ljSr3OCvME4TFvjDsLEGTYSktsuQ02mWOPlEoDeZOunwgQnN7XH8RB7N9QdXqV8QzzM' }
-    headers = {'Content-Type': 'application/json', 'Authorization':'key=AIzaSyBZLyqiF3yY0ksbH8VsSx6U6PCxysHRs74' }
+    payload = {'data': {'status': status}, 'notification': {'title': 'Gotaalvbron', 'body': status},
+               'to': pushId}
+    headers = {'Content-Type': 'application/json',
+               'Authorization': 'key=AAAABZijzVo:APA91bFX6dsZB6xHpdUZ-SxvXtXPftZ03lQwG1SHYF6R9-27gXxcJhWMtsY6YH0XBAeTfoet03x71ZzA15m9fsbmTGW2V30KflP8LjX3LrdAC-zeBWilnXNN01nUJzQDKnPRrCIHLRPK'}
     response = requests.post(url, data=json.dumps(payload), headers=headers)
     print response.text
 
-@app.route('/register/<id>', methods=['GET'])
-def register(id):
-    """Return a friendly HTTP greeting."""
+def bridge_closed():
+    query = db_session.query(User)
+    for item in query:
+        send_push(item.pushId, 'closed')
 
-    u = User(id, id)
+@app.route('/register/', methods=['GET'])
+def register():
+    """Return a friendly HTTP greeting."""
+    pushId = request.args.get('pushId')
+    pushType = request.args.get('pushType')
+    pushBridype = request.args.get('bridgeType')
+    u = User(pushId=pushId, pushType=pushType, bridgeType=pushBridype)
     db_session.add(u)
     db_session.commit()
-    return '<h2> register %s </id>' %id
+    printDBLog()
+    return '<h2> register %s </id>' %pushId
 
-@app.route('/unregister/<id>', methods=['GET'])
-def unregister(id):
-    return'<h3> unregister %s </h3>' %id
+@app.route('/unregister/', methods=['GET'])
+def unregister():
+    pushId = request.args.get('pushId')
+    pushBridype = request.args.get('bridgeType')
+    User.query.filter_by(pushId=pushId).delete()
+    db_session.commit()
+    printDBLog()
+    return '<h2> unregister %s </id>' %pushId
 
-@app.route('/unregister/list', methods=['GET'])
-def list():
-    users = db.session.query.all()
-    for user in users:
-        print user.name
-    return'<h3> list %s </h3>' %id
+@app.route('/open/', methods=['GET'])
+def open():
+    bridge_open()
+    return '<h2> open </id>'
+
 @app.route('/')
 def hello():
     """Return a friendly HTTP greeting."""
     query = db_session.query(User)
-    string = " <html> <body> < ul >"
-
-
-
+    string = ""
     for item in query:
-        string +=  " < li > "  + item.name   + " < / li > "
-    string += " </ul> </body> </html> "
+        string += str(item) + '\n'
     print string
     return string
 
-
+def printDBLog():
+    query = db_session.query(User)
+    string = ""
+    for item in query:
+        string += str(item) + '\n'
+    print string
 
 if __name__ == '__main__':
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.
+    background_thread = Thread(target=timer)
+    background_thread.start()
     app.run(host='127.0.0.1', port=8080, debug=True)
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
-db = SQLAlchemy(app)
-db.create_all()
-background_thread = Thread(target=timer)
-background_thread.start()
+
