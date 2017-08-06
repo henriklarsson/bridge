@@ -1,21 +1,12 @@
 from sqlalchemy import Column, Integer, String
 from database import Base
-import enum
-from sqlalchemy.types import Enum
-
-class BridgeEnum(enum.Enum):
-    gotaalvbron = 1
-
-class PushEnum(enum.Enum):
-    android = 1
-    ios = 2
 
 class User(Base):
     __tablename__ = 'user_db1'
     id = Column(Integer, primary_key=True)
     pushId = Column(String(120), unique=False)
-    pushType = Column(Enum(PushEnum))
-    bridgeType = Column(Enum(BridgeEnum))
+    pushType = Column(String(120), unique=False)
+    bridgeType = Column(String(120), unique=False)
 
 
     def __init__(self, pushId, pushType, bridgeType):
