@@ -2,6 +2,7 @@
 
 import logging
 import os
+import threading
 import time
 import datetime
 import requests
@@ -23,11 +24,10 @@ for qq in q:
     print qq
 
 
-s = sched.scheduler(time.time, time.sleep)
-def do_something(sc):
+def do_something():
     printToFile("preforming task")
     check_bridge_status()
-    s.enter(5, 1, do_something, (sc,))
+    threading.Timer(60.0, do_something).start()
 
 
 def check_bridge_status():
@@ -90,8 +90,8 @@ def unregister():
     printDBLog()
     return '<h2> unregister %s </id>' %pushId
 
-@app.route('/open/', methods=['GET'])
-def open():
+@app.route('/openbridge/', methods=['GET'])
+def openbridge():
     bridge_open()
     return '<h2> open </id>'
 
@@ -133,14 +133,13 @@ def printToFile(text):
         append_write = 'w' # make a new file if not
 
     logfile = open(filename,append_write)
-    logfile.write(datetime.datetime.now().time() + ' ' + text + '\n')
+    logfile.write(str(datetime.datetime.now().time()) + ' ' + text + '\n')
     logfile.close()
 
 if __name__ == '__main__':
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.
-    s.enter(60, 1, do_something, (s,))
-    print "main"
-
+    print "111"
+    do_something()
     app.run(host='127.0.0.1', port=8080, debug=True)
-    s.run()
+    print  "222"
