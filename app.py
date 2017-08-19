@@ -126,14 +126,15 @@ def printDBLog():
 def printToFile(text):
     print text
     filename = 'log.txt'
-
+    textWithTime = str(datetime.datetime.now().date()) + ' ' + str(datetime.datetime.now().time()) + ' ' + text + '\n'
+    print >> sys.stderr, textWithTime
     if os.path.exists(filename):
         append_write = 'a' # append if already exists
     else:
         append_write = 'w' # make a new file if not
 
     logfile = open(filename,append_write)
-    logfile.write(str(datetime.datetime.now().time()) + ' ' + text + '\n')
+    logfile.write(textWithTime)
     logfile.close()
 
 if __name__ == '__main__':
