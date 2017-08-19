@@ -4,6 +4,7 @@ import logging
 import time
 import requests
 import json
+import sched, time
 from threading import Thread
 from flask import Flask, request
 from database import init_db
@@ -20,28 +21,31 @@ for qq in q:
     print qq
 
 
+s = sched.scheduler(time.time, time.sleep)
+def do_something(sc):
+    print "Doing stuff..."
+    check_bridge_status()
+    s.enter(60, 1, do_something, (sc,))
 
-def timer():
-    count = 0
-    print "in timer"
-    while True:
-        print " sleep"
-        global open_boolean
-        check_bridge_status()
-        time.sleep(60)
 
 def check_bridge_status():
     url = "http://data.goteborg.se/BridgeService/v1.0/GetGABOpenedStatus/f459f514-8dfe-4279-b546-d7a0fb76870c?format=json"
     response = requests.get(url)
     global open_boolean
     json_data = json.loads(response.text)
+
+    print >> sys.stderr, "Bridge status: %s" %json_data
     if "True" in json_data or "true" in json_data:
+        global open_boolean
+        open_bridge = True
         bridge_open()
-
-
+    else:
+        global open_boolean
+        open_bridge = False
     print json_data
 
 def bridge_open():
+    print >> sys.stderr, "bridge open"
     query = db_session.query(User)
     for item in query:
         send_push(item.pushId, 'open')
@@ -89,6 +93,16 @@ def open():
     bridge_open()
     return '<h2> open </id>'
 
+@app.route('/status/', methods=['GET'])
+def status():
+    bridgeType = request.args.get('bridgeType')
+    global open_boolean
+    data = {}
+    data[bridgeType] = open_boolean
+    json_data = json.dumps(data)
+    return json.dumps(data)
+
+
 @app.route('/')
 def hello():
     """Return a friendly HTTP greeting."""
@@ -109,8 +123,7 @@ def printDBLog():
 if __name__ == '__main__':
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.
-    background_thread = Thread(target=timer)
-    background_thread.start()
+    s.enter(60, 1, do_something, (s,))
+    s.run()
     app.run(host='127.0.0.1', port=8080, debug=True)
-
 
