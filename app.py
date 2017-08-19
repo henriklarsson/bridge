@@ -1,16 +1,18 @@
 
 
 import logging
+import os
 import time
+import datetime
 import requests
 import json
 import sched, time
 from threading import Thread
 from flask import Flask, request
+import sys
 from database import init_db
 from models import User
 from database import db_session
-from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 open_boolean = False
 init_db()
@@ -23,9 +25,9 @@ for qq in q:
 
 s = sched.scheduler(time.time, time.sleep)
 def do_something(sc):
-    print "Doing stuff..."
+    printToFile("preforming task")
     check_bridge_status()
-    s.enter(60, 1, do_something, (sc,))
+    s.enter(5, 1, do_something, (sc,))
 
 
 def check_bridge_status():
@@ -34,7 +36,7 @@ def check_bridge_status():
     global open_boolean
     json_data = json.loads(response.text)
 
-    print >> sys.stderr, "Bridge status: %s" %json_data
+    printToFile("Bridge status: %s" %json_data)
     if "True" in json_data or "true" in json_data:
         global open_boolean
         open_bridge = True
@@ -45,7 +47,7 @@ def check_bridge_status():
     print json_data
 
 def bridge_open():
-    print >> sys.stderr, "bridge open"
+    printToFile("open bridge")
     query = db_session.query(User)
     for item in query:
         send_push(item.pushId, 'open')
@@ -120,10 +122,25 @@ def printDBLog():
         string += str(item) + '\n'
     print string
 
+
+def printToFile(text):
+    print text
+    filename = 'log.txt'
+
+    if os.path.exists(filename):
+        append_write = 'a' # append if already exists
+    else:
+        append_write = 'w' # make a new file if not
+
+    logfile = open(filename,append_write)
+    logfile.write(datetime.datetime.now().time() + ' ' + text + '\n')
+    logfile.close()
+
 if __name__ == '__main__':
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.
     s.enter(60, 1, do_something, (s,))
-    s.run()
-    app.run(host='127.0.0.1', port=8080, debug=True)
+    print "main"
 
+    app.run(host='127.0.0.1', port=8080, debug=True)
+    s.run()
