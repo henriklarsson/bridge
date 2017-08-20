@@ -112,7 +112,7 @@ def hello():
     string = ""
     for item in query:
         string += str(item) + '\n'
-    print string
+    printToFile(string)
     return string
 
 def printDBLog():
@@ -140,7 +140,7 @@ def printToFile(text):
 if __name__ == '__main__':
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.
-    print "111"
+    printToFile("111")
     do_something()
     app.run(host='127.0.0.1', port=8080, debug=True)
-    print  "222"
+    printToFile("222")
